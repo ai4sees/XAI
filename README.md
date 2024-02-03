@@ -7,8 +7,24 @@ To further evaluate the explanations from DeepSHAP, we use a threefold strategy-
 
 ## Installation
 This code needs python- 3.9 or higher
-'''
-pip install -r requirements.txt 
-'''
+
+    pip install -r requirements.txt 
+
+## Data Preprocessing and Model Training
+Data preprocessing and model training can either be visualised in notebooks or run the following commands for direct execution:
+
+    jupyter nbconvert --to script preprocess_and_train_multi_site.ipynb --execute
+    jupyter nbconvert --to script preprocess_and_train_beijing_2.5.ipynb --execute
+
+## Comparative Analysis of DeepSHAP and TS-MULE
+the trained model files as well as preprocessed data files are used to compute feature importance scores with DeepSHAP and TS-MULE and the perturbation score metric. Feature scores and their perturbation metric scores can be visualised in the provided notebooks.
+
+## Model Training With Feature Incorporation
+
+To train models with and without feature incorporation in the model training process and then comparing the performance of both models, run the following commands:
+
+    python <feature incorporation method>/<dataset>.py
+    
+where *'<feature incorporation method>'* can be Data Augmentation or Feature Transformation and *'<dataset>'* can be beijing_air_multi_site, beijing_air_pm2.5 or synthetic_data
 
  
