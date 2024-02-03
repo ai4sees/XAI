@@ -25,6 +25,6 @@ To train models with and without feature incorporation in the model training pro
 
     python <feature incorporation method>/<dataset>.py
     
-where *'<feature incorporation method>'* can be Data Augmentation or Feature Transformation and *'<dataset>'* can be beijing_air_multi_site, beijing_air_pm2.5 or synthetic_data
+where <feature incorporation method> can be Data Augmentation or Feature Transformation and <dataset> can be beijing_air_multi_site, beijing_air_pm2.5 or synthetic_data
 
  
