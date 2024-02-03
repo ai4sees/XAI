@@ -1,0 +1,12 @@
+numpy
+matplotlib
+pandas 
+sklearn
+tensorflow == 2.15.0
+keras
+statistics
+IPython
+torch
+dill
+shap
+timeit
