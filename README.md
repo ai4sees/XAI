@@ -10,21 +10,44 @@ This code needs python- 3.9 or higher
 
     pip install -r requirements.txt 
 
-## Data Preprocessing and Model Training
-Data preprocessing and model training can either be visualised in notebooks or run the following commands for direct execution:
+## Results Reproduction
+In order to reproduce the results depicted in the paper, it is essential to follow a sequence of steps as-
+- Preprocessing of data
+- Training the models
+- Get Feature Importance scores
+- Use Feature Importance scores for Comparative, Computational Measures and Visual Analysis
 
-    jupyter nbconvert --to script preprocess_and_train_multi_site.ipynb --execute
-    jupyter nbconvert --to script preprocess_and_train_beijing_2.5.ipynb --execute
+ ### Preprocessing of Data
+ Run the following command to preprocess data
 
-## Comparative Analysis of DeepSHAP and TS-MULE
-the trained model files as well as preprocessed data files are used to compute feature importance scores with DeepSHAP and TS-MULE and the perturbation score metric. Feature scores and their perturbation metric scores can be visualised in the provided notebooks.
+     python preprocess.py <dataset> <scalar>
 
-## Model Training With Feature Incorporation
+ <dataset> can either be beijing_PM2.5 or beijing-multi_site and <scalar> should be replaced by normalize or standardize, depending on the type of normalization technique to use on data. This will also download files for preprocessed data.
 
-To train models with and without feature incorporation in the model training process and then comparing the performance of both models, run the following commands:
+### Training the Models
+Run the following command to train LSTM and Transformer models on the chosen dataset
 
-    python <feature incorporation method>/<dataset>.py
+    python train.py
     
-where <feature incorporation method> can be Data Augmentation or Feature Transformation and <dataset> can be beijing_air_multi_site, beijing_air_pm2.5 or synthetic_data
+This trains and saves model files for the deep learning models.
+
+### Compute Feature Importance Scores and calculate Perturbation Score Metric
+To get feature contribtuion scores using various interpretability methods and their perturation score metric, run the command
+
+    python pert_score.py <model>
+
+<model> should either be replcaed by RNN or trans, depending the model for which you want results for.
+
+### Training of Model with Incorporation of Feature Importance Scores
+Now we train the model again, first without including feature contribution scores and then with incorporating feature importance scores either through featuring weighting or data augmentation. To Run experiments for feature weighting or data augmentation, the commands to be used are
+
+    python feat_transformation.py <model>
+    python data_augmentation.py <model>
+
+<model> should be replaced by eith RNN or trans, depending on the type of model chosen.
+
+
+  
+
 
  
