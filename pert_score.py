@@ -9,15 +9,15 @@ import timeit
 
 import matplotlib.pyplot as plt
 import shap
-from sklearn import metrics
-from sklearn.model_selection import linear_model, train_test_split
+from sklearn import metrics, linear_model
+from sklearn.model_selection import train_test_split
 from tsmule.xai.lime import LimeTS
 from tsmule.sampling.segment import WindowSegmentation, MatrixProfileSegmentation, SAXSegmentation
 from tsmule.sampling.perturb import Perturbation
 from tsmule.xai.evaluation import PerturbationAnalysis
 import torch
 from train import RNNModel, TransformerRegressor
-
+import argparse
 
 
 
@@ -25,9 +25,9 @@ from train import RNNModel, TransformerRegressor
 
 
 def cal_pert_score(orig_score, pert_score, rand_score):
-    pert_c = (orig_score - pert_score)/orig_score
-    rand_c = (orig_score - rand_score)/orig_score
-    score = np.abs(pert_c/rand_c) 
+    pert_c = np.abs((orig_score - pert_score)/orig_score)
+    rand_c = np.abs((orig_score - rand_score)/orig_score)
+    score = pert_c/rand_c 
     return score
 
 
@@ -49,11 +49,12 @@ def add_metadata(contribution_method, orig_score, pert_score, rand_score):
 
 
 def predict_fn(x):
-    if len(x.shape) == 2:
-        prediction = model.predict(x[np.newaxis, :, :]).ravel()
+    x_tensor = torch.from_numpy(x).float().to(device)
+    if len(x_tensor.shape) == 2:
+        prediction = model(x_tensor[np.newaxis, :, :]).ravel()
     else:
-        prediction = model.predict(x).ravel()
-    return prediction
+        prediction = model(x_tensor).ravel()
+    return prediction.detach().cpu().numpy()
   
 
 
@@ -65,132 +66,150 @@ def predict_fn(x):
 
 
 # MAIN FUNCTION STARTS HERE- 
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser()
 
-if len(sys.argv) <= 1:
-        print("Usage: python myscript.py arg1 arg2")
-        sys.exit(1)
+  parser.add_argument("--model", type = str, default = "rnn")
+  parser.add_argument("--windows", type = int, default = 10000)
+  parser.add_argument("--replace_method", type = str, choices =["zeros", "global_mean", "local_mean", "inverse_mean", "inverse_max"], default = "zeros")
+  parser.add_argument("--window_length", type = int, default = 24)
+  parser.add_argument("--n_samples", type = int, default = 24)
+  args = parser.parse_args()
 
-model_ = sys.argv[0]
-
-
-metadata=pd.DataFrame(columns=["Contribution Method", "Original Score", "Perturbation Score", "Random Score", "Perturbation Score Metric"])
-
-
-
-device= 'cuda' if torch.cuda.is_available() else 'cpu'
-with open('data.dill', 'rb') as f:
-    dataset_test = dill.load(f)
-
-df = dataset_test[0][:10000]
-pred_val = dataset_test[1][:10000]
+  model_ = args.model
 
 
-if model_=="RNN":
-    model = RNNModel((df.shape[1], df.shape[2]))
-    model.load_state_dict(torch.load("rnn_model", map_location=device))
+  metadata=pd.DataFrame(columns=["Contribution Method", "Original Score", "Perturbation Score", "Random Score", "Perturbation Score Metric"])
 
-if model_=="trans":
-    # Model parameters
-    d_model = 128
-    nhead = 8
-    num_encoder_layers = 3
-    dim_feedforward = 512
+
+
+  device= 'cuda' if torch.cuda.is_available() else 'cpu'
+  with open('data.dill', 'rb') as f:
+      dataset_test = dill.load(f)
+
+  df = dataset_test[0][:args.windows]
+  pred_val = dataset_test[1][:args.windows]
+
+
+  if model_== "rnn":
+      torch.backends.cudnn.enabled=False
+      model = RNNModel((df.shape[1], df.shape[2]))
+      model.load_state_dict(torch.load("rnn_model.pt", map_location = device))
+      model.to(device)
+
+  
+
+  if model_=="trans":
+    #MODEL PARAMETERS  
+    parser.add_argument("--d_model", type = int, default = 128)
+    parser.add_argument("--nhead", type = int, default = 8)
+    parser.add_argument("--num_encoder_lay", type = int, default = 3)
+    parser.add_argument("--dim_feedforward", type = int, default = 512)
+    args = parser.parse_args()
+    
+    d_model = args.d_model
+    nhead = args.nhead
+    num_encoder_layers = args.num_encoder_lay
+    dim_feedforward = args.dim_feedforward
     output_dim = 1
     input_dim = df.shape[2]
     model = TransformerRegressor(input_dim, d_model, nhead, num_encoder_layers, dim_feedforward, output_dim)
-    model.load_state_dict(torch.load("transformer_model", map_location = device))
+    model.load_state_dict(torch.load("transformer_model.pt", map_location = device))
+    model.to(device)
 
 
 
 
 
 
-tic=timeit.default_timer()
-print("Start Computing Feature Contribution Scores")
-shap_exp=shap.DeepExplainer(model, df[:3000]) #expected shape (None, 24, 7)
+    tic=timeit.default_timer()
+    print("Start Computing Feature Contribution Scores")
+    bac_data = torch.from_numpy(df[:300]).float().to(device)
+    d_ = torch.from_numpy(df).float().to(device)
+    shap_exp=shap.DeepExplainer(model, bac_data) #expected shape (None, 24, 7)
 
-shap_values=shap_exp.shap_values(df)
+    shap_values=shap_exp.shap_values(d_)
 
-print('Total time: ' + str(timeit.default_timer()-tic))
+    print('Total time: ' + str(timeit.default_timer()-tic))
 
-shap_values=np.asarray(shap_values).squeeze()
-print("Shap Values.shape: ", shap_values.shape)
+    shap_values=np.asarray(shap_values).squeeze()
+    print("Shap Values.shape: ", shap_values.shape)
 
-#save shap values
-with open('shap_values.dill', 'wb') as f:
-    dill.dump(shap_values, f)
-
-
-pa = PerturbationAnalysis()
-scores = pa.analysis_relevance(df, pred_val, shap_values,
+    #save shap values
+    with open(f'{model_}_shap_values.dill', 'wb') as f:
+        dill.dump(shap_values, f)
+    
+  
+    pa = PerturbationAnalysis()
+    scores = pa.analysis_relevance(df, pred_val, shap_values,
                         predict_fn=predict_fn,
-                        replace_method='zeros',
+                        replace_method=args.replace_method,
                         eval_fn=metrics.mean_squared_error,
                         percentile=90
                         )
-add_metadata("Shap Values", scores['original'], scores['percentile'], scores['random'])
+    metadata = add_metadata("Shap Values", scores['original'], scores['percentile'], scores['random'])
 
 
 
 
 
 
-lasso_classifier = linear_model.Lasso(alpha=0.01)  #faster the model, faster LIME works
-per=Perturbation()
+    lasso_classifier = linear_model.Lasso(alpha=0.01)  #faster the model, faster LIME works
+    per=Perturbation()
+   
+    #Feature Contribution with LIME and Uniform Segmentation
+    tic = timeit.default_timer()
+    print("Start computation of LIME Values")
 
-#Feature Contribution with LIME and Uniform Segmentation
-tic = timeit.default_timer()
-print("Start computation of LIME Values")
-
-#segments object, WindowSegmentation object has stationery and exponential segmentations techniques
-uniform_seg=WindowSegmentation(partitions=4, win_length=24)
-uniform_lime=LimeTS(kernel=lasso_classifier, segmenter=uniform_seg, sampler=per, n_samples=24)
-lime_values_uni=[uniform_lime.explain(df[i], predict_fn, segmentation_method='uniform')
+    #segments object, WindowSegmentation object has stationery and exponential segmentations techniques
+    uniform_seg=WindowSegmentation(partitions=4, win_length= args.window_length)
+    uniform_lime=LimeTS(kernel=lasso_classifier, segmenter=uniform_seg, sampler=per, n_samples= args.n_samples)
+    lime_values_uni=[uniform_lime.explain(df[i], predict_fn, segmentation_method='uniform')
                  for i in range(len(df))]
 
-print('Total time: ' + str(timeit.default_timer()-tic)) 
+    print('Total time: ' + str(timeit.default_timer()-tic))
 
-pa = PerturbationAnalysis()
-scores = pa.analysis_relevance(df, pred_val, lime_values_uni,
+    pa = PerturbationAnalysis()
+    scores = pa.analysis_relevance(df, pred_val, lime_values_uni,
                         predict_fn=predict_fn,
-                        replace_method='zeros',
+                        replace_method=args.replace_method,
                         eval_fn=metrics.mean_squared_error,
                         percentile=90
                         )
 
-add_metadata("LIME Values with Uniform Segmentation", scores['original'],
-             scores['perturbation'], scores['random'])
+    metadata = add_metadata("LIME Values with Uniform Segmentation", scores['original'],
+             scores['percentile'], scores['random'])
 
 
 
 
 
 
-#LimeTS object for exponential window segmentation
-tic = timeit.default_timer()
-print("Computation of Lime Values with Exponential Segmentation")
+    #LimeTS object for exponential window segmentation
+    tic = timeit.default_timer()
+    print("Computation of Lime Values with Exponential Segmentation")
 
-#segment object, WindowSegmentation has stationery and exponentials segmentation techniques
-exp_seg=WindowSegmentation(partitions=4, win_length=24)
-exp_lime=LimeTS(kernel=lasso_classifier, segmenter=exp_seg, sampler=per, n_samples=24)
-#explainer for LimeTS
-lime_values_exp=[exp_lime.explain(df[i], predict_fn, segmentation_method='exponential')
+    #segment object, WindowSegmentation has stationery and exponentials segmentation techniques
+    exp_seg=WindowSegmentation(partitions=4, win_length= args.window_length)
+    exp_lime=LimeTS(kernel=lasso_classifier, segmenter=exp_seg, sampler=per, n_samples= args.n_samples)
+    #explainer for LimeTS
+    lime_values_exp=[exp_lime.explain(df[i], predict_fn, segmentation_method='exponential')
                  for i in range(len(df))]
 
-print('Total time: ' + str(timeit.default_timer()-tic))
+    print('Total time: ' + str(timeit.default_timer()-tic))
 
 
 
-pa = PerturbationAnalysis()
-scores = pa.analysis_relevance(df, pred_val, lime_values_exp,
+    pa = PerturbationAnalysis()
+    scores = pa.analysis_relevance(df, pred_val, lime_values_exp,
                         predict_fn=predict_fn,
-                        replace_method='zeros',
+                        replace_method=args.replace_method,
                         eval_fn=metrics.mean_squared_error,
                         percentile=90
                         )
 
-add_metadata("LIME Values with Exponential Segmentation", scores['original'],
-             scores['perturbation'], scores['random'])
+    metadata = add_metadata("LIME Values with Exponential Segmentation", scores['original'],
+             scores['percentile'], scores['random'])
 
 
 
@@ -198,30 +217,30 @@ add_metadata("LIME Values with Exponential Segmentation", scores['original'],
 
 
 
-#LimeTS object for SAX segmentation
-tic=timeit.default_timer()
-print("Computation of Lime Values with SAX Segmentation")
+    #LimeTS object for SAX segmentation
+    tic=timeit.default_timer()
+    print("Computation of Lime Values with SAX Segmentation")
 
 
-#create segment object for SAX Transformation
-seg_sax=SAXSegmentation(partitions=4, win_length=10)
+    #create segment object for SAX Transformation
+    seg_sax=SAXSegmentation(partitions=4, win_length=args.window_length)
 
-lime_sax=LimeTS(kernel=lasso_classifier, segmenter=seg_sax, sampler=per, n_samples=24)
-lime_values_sax=[lime_sax.explain(df[i], predict_fn) for i in range(len(df))]
+    lime_sax=LimeTS(kernel=lasso_classifier, segmenter=seg_sax, sampler=per, n_samples=args.n_samples)
+    lime_values_sax=[lime_sax.explain(df[i], predict_fn) for i in range(len(df))]
 
-print('Total time: ' + str(timeit.default_timer()-tic))
+    print('Total time: ' + str(timeit.default_timer()-tic))
 
 
-pa = PerturbationAnalysis()
-scores = pa.analysis_relevance(df, pred_val, lime_values_sax,
+    pa = PerturbationAnalysis()
+    scores = pa.analysis_relevance(df, pred_val, lime_values_sax,
                         predict_fn=predict_fn,
-                        replace_method='zeros',
+                        replace_method=args.replace_method,
                         eval_fn=metrics.mean_squared_error,
                         percentile=90
                         )
 
-add_metadata("LIME Values with SAX Segmentation", scores['original'],
-             scores['perturbation'], scores['random'])
+    metadata = add_metadata("LIME Values with SAX Segmentation", scores['original'],
+             scores['percentile'], scores['random'])
 
 
-metadata.to_csv("scores.csv")
+    metadata.to_csv("scores.csv")
