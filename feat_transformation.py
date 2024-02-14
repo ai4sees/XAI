@@ -13,11 +13,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
-
-
-
-MODEL = sys.argv[0]
-device= 'cuda' if torch.cuda.is_available() else 'cpu'
+import argparse
 
 
 
@@ -173,7 +169,6 @@ class TransformerRegressor(nn.Module):
 
 
 
-
 def add_metadata(model, feat, epochs, MSE):
   new_row = {
         "Model": model, 
@@ -184,33 +179,52 @@ def add_metadata(model, feat, epochs, MSE):
     
     # Append the new row to the DataFrame and return it
   return metadata.append(new_row, ignore_index=True)
-  
-# MAIN FUNCTION STARTS HERE- 
-
-metadata=pd.DataFrame(columns=["Model", "feat", "epochs", "MSE"])
-
-
-
-with open("data.dill", "rb") as f:
-   df = dill.load(f)
-
-
-#taking first 10000 windows for training
-X = df[0][:10000]
-y = df[1][:10000]
-
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=13)
 
 
 
 
-if MODEL =="RNN":
-#Train RNN Model without feature importances
+
+
+# MAIN FUNCTION STARTS HERE-
+
+if __name__ =="__main__":
+
+  parser = argparse.ArgumentParser()
+
+  parser.add_argument("--model", type = str, default = "rnn")
+  parser.add_argument("--windows", type = int, default = 10000)
+  parser.add_argument("--epochs", type = int, default = 100)
+  parser.add_argument("--test_size", type = float, default = 0.2)
+  args = parser.parse_args()
+
+  device= 'cuda' if torch.cuda.is_available() else 'cpu'
+
+  MODEL = args.model
+
+  metadata=pd.DataFrame(columns=["Model", "feat", "epochs", "MSE"])
+  epochs = args.epochs
+  mse_ = nn.MSELoss()
+
+  with open("data.dill", "rb") as f:
+    df = dill.load(f)
+
+
+  #taking first 10000 windows for training
+  X = df[0][:args.windows]
+  y = df[1][:args.windows]
+
+  X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=args.test_size, random_state=13)
+
+
+
+
+  if MODEL =="rnn":
+  #Train RNN Model without feature importances
 
     num_epochs = []
     model=RNNModel((X.shape[1], X.shape[2]))
     model.to(device)
-    model_, train_loss, val_loss = run_model(model, X_train, y_train, X_test, y_test, 100, False, device)
+    model_, train_loss, val_loss = run_model(model, X_train, y_train, X_test, y_test, epochs, False, device)
     x_test=torch.from_numpy(X_test).float().to(device)
     y_test_=torch.from_numpy(y_test).float().to(device)
     dataset = TensorDataset(x_test, y_test_)
@@ -219,18 +233,18 @@ if MODEL =="RNN":
 
     for x_test, y_test_ in data_loader:
         predictions= model_(x_test)
-        mse=torch.mean(torch.square(predictions-y_test_))
+        mse=mse_(predictions, y_test_)
 
-    print("MSE: ", mse)
+    print("MSE: ", mse.item())
 
-    add_metadata("RNN", "not included", 100, mse)
+    add_metadata("RNN", "not included", epochs, mse.item())
 
 
 
 
 
     #train model with feature importances
-    with open('shap_values.dill', 'rb') as f:
+    with open(f"{MODEL}_shap_values.dill", 'rb') as f:
         shap_values=dill.load(f)
 
     new_data=X*shap_values
@@ -238,7 +252,7 @@ if MODEL =="RNN":
     num_epochs = []
     model=RNNModel((new_data.shape[1], new_data.shape[2]))
     model.to(device)
-    model_, train_new_loss, val_new_loss = run_model(model, X_train, y_train, X_test, y_test, 100, False, device)
+    model_, train_new_loss, val_new_loss = run_model(model, X_train, y_train, X_test, y_test, epochs, False, device)
     x_test=torch.from_numpy(X_test).float().to(device)
     y_test_=torch.from_numpy(y_test).float().to(device)
     dataset = TensorDataset(x_test, y_test_)
@@ -247,41 +261,47 @@ if MODEL =="RNN":
 
     for x_test, y_test_ in data_loader:
         predictions= model_(x_test)
-        mse=torch.mean(torch.square(predictions-y_test_))
+        mse=mse_(predictions, y_test_)
 
     print("MSE: ", mse)
 
-    add_metadata("RNN", "included", 100, mse)
+    add_metadata("RNN", "included", epochs, mse.item())
 
     plt.plot(train_loss, label= "Train Loss with original data")
     plt.plot(val_loss, label= "Validation Loss with original data")
     plt.plot(train_new_loss, label= "Train Loss with transformed data")
     plt.plot(val_new_loss, label= "Train Loss with transformed data")
     plt.legend()
-    plt.savefig("loss_curves_trans.jpg")
+    plt.savefig("loss_curves_rnn.png")
 
 
 
 
 
-if MODEL == "trans":
+  if MODEL == "trans":
     #TRAIN TRANSFORMERS MODEL without feature importances
 
     num_epochs = []
-    # Model parameters
-    d_model = 128
-    nhead = 8
-    num_encoder_layers = 3
-    dim_feedforward = 512
-    output_dim = 1
+    #MODEL PARAMETERS  
+    parser.add_argument("--d_model", type = int, default = 128)
+    parser.add_argument("--nhead", type = int, default = 8)
+    parser.add_argument("--num_encoder_lay", type = int, default = 3)
+    parser.add_argument("--dim_feedforward", type = int, default = 512)
+    args =parser.parse_args()
+
     input_dim = X.shape[2]
+    output_dim = 1
+    d_model = args.d_model
+    nhead = args.nhead
+    num_encoder_layers = args.num_encoder_lay
+    dim_feedforward = args.dim_feedforward
     
 
 
     # Create the model
     model = TransformerRegressor(input_dim, d_model, nhead, num_encoder_layers, dim_feedforward, output_dim)
     model.to(device)
-    model_, train_loss, val_loss = run_model(model, X_train, y_train, X_test, y_test, 100, False, device)
+    model_, train_loss, val_loss = run_model(model, X_train, y_train, X_test, y_test, epochs, False, device)
     x_test=torch.from_numpy(X_test).float().to(device)
     y_test_=torch.from_numpy(y_test).float().to(device)
     dataset = TensorDataset(x_test, y_test_)
@@ -290,29 +310,26 @@ if MODEL == "trans":
 
     for x_test, y_test_ in data_loader:
         predictions= model_(x_test)
-        mse=torch.mean(torch.square(predictions-y_test_))
+        mse=mse_(predictions, y_test_)
 
     print("MSE: ", mse)
 
 
-    add_metadata("Transformers", "not included", 100, mse)
+    add_metadata("Transformers", "not included", epochs, mse.item())
 
 
 
     #TRAIN TRANSFORMERS MODEL with feature importances
-    with open('shap_values.dill', 'rb') as f:
+    with open(f'{MODEL}_shap_values.dill', 'rb') as f:
         shap_values=dill.load(f)
 
     new_data=X*shap_values
-    X_train, X_test, y_train, y_test = train_test_split(new_data, y, test_size=0.2, random_state=13)
+    X_train, X_test, y_train, y_test = train_test_split(new_data, y, test_size=args.test_size, random_state=13)
 
 
     num_epochs = []
     # Model parameters
-    d_model = 128
-    nhead = 8
-    num_encoder_layers = 3
-    dim_feedforward = 512
+
     output_dim = 1
     input_dim = new_data.shape[2]
 
@@ -322,7 +339,7 @@ if MODEL == "trans":
     # Create the model
     model = TransformerRegressor(input_dim, d_model, nhead, num_encoder_layers, dim_feedforward, output_dim)
     model.to(device)
-    model_, train_new_loss, val_new_loss = run_model(model, X_train, y_train, X_test, y_test, 100, False, device)
+    model_, train_new_loss, val_new_loss = run_model(model, X_train, y_train, X_test, y_test, epochs, False, device)
     x_test=torch.from_numpy(X_test).float().to(device)
     y_test_=torch.from_numpy(y_test).float().to(device)
     dataset = TensorDataset(x_test, y_test_)
@@ -331,19 +348,18 @@ if MODEL == "trans":
 
     for x_test, y_test_ in data_loader:
         predictions= model_(x_test)
-        mse=torch.mean(torch.square(predictions-y_test_))
+        mse=mse_(predictions, y_test_)
 
     print("MSE: ", mse)
 
 
-    add_metadata("Transformers", "included", 100, mse)
+    add_metadata("Transformers", "included", epochs, mse.item())
 
     plt.plot(train_loss, label= "Train Loss with original data")
     plt.plot(val_loss, label= "Validation Loss with original data")
     plt.plot(train_new_loss, label= "Train Loss with transformed data")
     plt.plot(val_new_loss, label= "Train Loss with transformed data")
     plt.legend()
-    plt.savefig("loss_curves_trans.jpg")
-
+    plt.savefig("loss_curves_trans.png")
 
 
