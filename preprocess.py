@@ -6,7 +6,7 @@ from io import BytesIO
 from zipfile import ZipFile
 from urllib.request import urlopen
 import dill
-import argparse
+
 
 
 
@@ -107,32 +107,34 @@ def load_dataset(dataset="beijing_pm2.5"):
 
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser()
+    print(len(sys.argv))
+    if len(sys.argv) > 3:
+        print("Usage: python myscript.py arg1 arg2")
+        sys.exit(1)
 
-  parser.add_argument("dataset", type = str, default = "synthetic")
-  parser.add_argument("scalar", type = str, default = "normalize")
-  parser.add_argument("window_size", type = int, default = 24)
-  args = parser.parse_args()
-
-
-  df = load_dataset(args.dataset)
-  if args.scalar =="normalize":
+    dataset = str(sys.argv[1])
+    scaler = str(sys.argv[2])
+    print(dataset)
+    print(scaler)
+    df = load_dataset(dataset)
+    if scaler =="normalize":
         normalize = True
         standardize = False
 
-  elif args.scalar == "standardize":
+    if scaler == "standardize":
         normalize = False
         standardize = True
 
-  df_temp, _, _ = preprocess_data(df, normalize, standardize)
-  X = df_temp.drop(['pm2.5'], axis=1)
-  y = df_temp['pm2.5']
+    df_temp, _, _ = preprocess_data(df, normalize, standardize)
+    X = df_temp.drop(['pm2.5'], axis=1)
+    y = df_temp['pm2.5']
 
-  data = create_sequences(X, y, n_steps = args.window_size)
+    data = create_sequences(X, y)
 
 
-  with open("data.dill", 'wb') as f:
-      dill.dump(data, f)
+    with open("data.dill", 'wb') as f:
+        dill.dump(data, f)
+
 
 
 
