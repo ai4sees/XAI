@@ -1,35 +1,41 @@
+from abc import abstractmethod
+
 import numpy as np
-import matplotlib.pyplot as plt
-import torch
-
-
+from model import train_model
+from sklearn.model_selection import train_test_split
 
 
 #add model as a class attribute or method parameter?
 class evaluation():
-    def __init__(self, feat_cont, df, model):
-        self.feat_cont = feat_cont
-        self.model = model
+    def __init__(self, df, y = None):
         self.df = df
+        self.y = y
+
+
+    @abstractmethod
+    def train_with_feat_transformation(self, epochs = 100, batch_size = 32,
+                                       device = 'cpu', test_size = 0.2, shuffle = True, random_state = None):
+
+        pass
 
 
 
-    def train_with_feat_Trans(self):
-        new_data = self.df*self.feat_cont
-        if model==""
-
-    def train_with_feat_aug(self):
-        new_data = []
-        for i, j in zip(self.df, self.feat_cont):
-            new_data.append(np.hstack((i, j)))
-
-        new_data = np.asarray(new_data)
-
-    def get_perturbation_score(self):
+    @abstractmethod
+    def train_with_feat_aug(self, epochs = 100, batch_size = 32,
+                            device = 'cpu', test_size = 0.2, shuffle = True, random_state = None):
+        pass
 
 
 
-    def visual_analysis(self):
+
+    @abstractmethod
+    def get_perturbation_score(self, Perturbation_Analysis, windows=False):
+        pass
+            
+
+
+
+
 
 
 

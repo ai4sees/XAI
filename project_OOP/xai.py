@@ -1,25 +1,22 @@
 import numpy as np
-import pandas as pd
 import shap
-import dill
 from sklearn import metrics, linear_model
 from sklearn.model_selection import train_test_split
 from tsmule.xai.lime import LimeTS
 from tsmule.sampling.segment import WindowSegmentation, MatrixProfileSegmentation, SAXSegmentation
 from tsmule.sampling.perturb import Perturbation
-from tsmule.xai.evaluation import PerturbationAnalysis
-import torch
-from train import RNNModel, TransformerRegressor
+from evaluation import evaluation
+from model import train_model
 
 
-
-class xai():
+class xai(evaluation):
     def __init__(self, model, back_data, df, kernel = linear_model.Lasso(alpha=0.01)):
+        super().__init__(df, y = None)
         self.model = model
         self.back_data = back_data
         self.df = df
         self.kernel = kernel
-
+        self.feat_cont = None
 
     def predict_fn(self):
         if len(self.df.shape) == 2:
@@ -34,7 +31,8 @@ class xai():
             shap_values = e.shap_values(self.df)
             print("Shape of shap values: ", shap_values.shape)
             shap_values = np.array(shap_values).squeeze()
-            return
+            self.feat_cont = shap_values
+            return self.feat_cont
 
 
 
@@ -47,7 +45,8 @@ class xai():
                                for i in range(len(self.df))]
 
             print("LIME Values Shape: ", np.array(lime_values_uni).shape)
-            return lime_values_uni
+            self.feat_cont = lime_values_uni
+            return self.feat_cont
 
         if seg_method == "exponential segmentation":
             # segment object, WindowSegmentation has stationery and exponentials segmentation techniques
@@ -58,7 +57,8 @@ class xai():
                                for i in range(len(self.df))]
 
             print("LIME Values Shape: ", np.array(lime_values_exp).shape)
-            return lime_values_exp
+            self.feat_cont = lime_values_exp
+            return self.feat_cont
 
 
         if seg_method == "sax segmentation":
@@ -69,9 +69,76 @@ class xai():
             lime_values_sax = [lime_sax.explain(self.df[i], self.predict_fn) for i in range(len(self.df))]
 
             print("LIME Values Shape: ", np.array(lime_values_sax).shape)
-            return lime_values_sax
+            self.feat_cont = lime_values_sax
+            return self.feat_cont
 
         else:
             print("Invalid segmentation technique")
 
 
+
+
+    def train_with_feat_transformation(self, epochs=100, batch_size=32,
+                                       device='cpu', test_size=0.2, shuffle=True, random_state=None):
+
+        new_data = self.df*self.feat_cont
+        x_train, y_train, x_test, y_test = train_test_split(new_data, self.y,
+                             test_size = test_size, shuffle = shuffle, random_state = random_state)
+        train = train_model(self.model, x_train, y_train, x_test, y_test, epochs, batch_size, device)
+
+        trained_model, train_loss, val_loss = train()
+
+        return trained_model, train_loss, val_loss
+
+
+
+
+
+    def train_with_feat_aug(self, epochs = 100, batch_size = 32,
+                            device = 'cpu', test_size = 0.2, shuffle = True, random_state = None):
+        new_data = []
+        for i, j in zip(self.df, self.feat_cont):
+            new_data.append(np.hstack((i, j)))
+
+        new_data = np.asarray(new_data)
+
+        x_train, y_train, x_test, y_test = train_test_split(new_data, self.y,
+                                                            test_size=test_size, shuffle=shuffle,
+                                                            random_state=random_state)
+        train = train_model(self.model, x_train, y_train, x_test, y_test, epochs, batch_size, device)
+
+        trained_model, train_loss, val_loss = train()
+
+        return trained_model, train_loss, val_loss
+
+
+
+
+
+
+    def get_perturbation_score(self, Perturbation_Analysis, windows=False):
+        scores = Perturbation_Analysis.analysis_relevance(self.df, self.y, self.feat_cont,
+                                                          predict_fn=self.pred_fn, replace_method='zeros', percentile=90,
+                                                          delta=0.0)
+        orig_score = scores['original']
+        pert_score = scores['percentile']
+        rand_score = scores['random']
+        pert_c = np.abs((orig_score - pert_score) / orig_score)
+        rand_c = np.abs((orig_score - rand_score) / orig_score)
+        score = pert_c / rand_c
+
+        if windows:
+            scores = Perturbation_Analysis.analysis_relevance_windows(self.df, self.y, self.feat_cont,
+                                                                      predict_fn=self.pred_fn, replace_method='zeros',
+                                                                      percentile=90,
+                                                                      delta=0.0)
+            orig_score = scores['original_windows']
+            pert_score = scores['percentile_windows']
+            rand_score = scores['random_windows']
+            pert_c = np.abs((orig_score - pert_score) / orig_score)
+            rand_c = np.abs((orig_score - rand_score) / orig_score)
+            score_win = pert_c / rand_c
+            return score, score_win
+
+        else:
+            return score
