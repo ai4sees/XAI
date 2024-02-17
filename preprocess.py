@@ -109,10 +109,21 @@ def load_dataset(dataset="beijing_pm2.5"):
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
 
-  parser.add_argument("dataset", type = str, default = "synthetic")
-  parser.add_argument("scalar", type = str, default = "normalize")
-  parser.add_argument("window_size", type = int, default = 24)
+  parser.add_argument("--dataset", type = str, default = "synthetic")
+  parser.add_argument("--pred", type = str, default = "g")
+  parser.add_argument("--scalar", type = str, default = "normalize")
+  parser.add_argument("--window_size", type = int, default = 24)
   args = parser.parse_args()
+
+    # print(len(sys.argv))
+    # if len(sys.argv) > 3:
+    #     print("Usage: python myscript.py arg1 arg2")
+    #     sys.exit(1)
+
+    # dataset = str(sys.argv[1])
+    # scalar = str(sys.argv[2])
+    # print(dataset)
+    # print(scalar)
 
 
   df = load_dataset(args.dataset)
@@ -125,8 +136,9 @@ if __name__ == "__main__":
         standardize = True
 
   df_temp, _, _ = preprocess_data(df, normalize, standardize)
-  X = df_temp.drop(['pm2.5'], axis=1)
-  y = df_temp['pm2.5']
+
+  X = df_temp.drop(args.pred, axis=1)
+  y = df_temp[args.pred]
 
   data = create_sequences(X, y, n_steps = args.window_size)
 

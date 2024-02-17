@@ -25,9 +25,12 @@ import argparse
 
 
 def cal_pert_score(orig_score, pert_score, rand_score):
-    pert_c = np.abs((orig_score - pert_score)/orig_score)
-    rand_c = np.abs((orig_score - rand_score)/orig_score)
-    score = pert_c/rand_c 
+    pert_c = (orig_score - pert_score)/orig_score
+    rand_c = (orig_score - rand_score)/orig_score
+    if rand_c == 0 & pert_c == 0:
+      score = 0
+    else:  
+      score = np.abs(pert_c/rand_c) 
     return score
 
 
@@ -92,10 +95,11 @@ if __name__ == "__main__":
 
 
   if model_== "rnn":
-      torch.backends.cudnn.enabled=False
-      model = RNNModel((df.shape[1], df.shape[2]))
-      model.load_state_dict(torch.load("rnn_model.pt", map_location = device))
-      model.to(device)
+    torch.backends.cudnn.enabled=False
+    model = RNNModel((df.shape[1], df.shape[2]))
+    model.load_state_dict(torch.load("rnn_model.pt", map_location = device))
+    model.to(device)
+    print("Model Loaded")
 
   
 
@@ -122,125 +126,124 @@ if __name__ == "__main__":
 
 
 
-    tic=timeit.default_timer()
-    print("Start Computing Feature Contribution Scores")
-    bac_data = torch.from_numpy(df[:300]).float().to(device)
-    d_ = torch.from_numpy(df).float().to(device)
-    shap_exp=shap.DeepExplainer(model, bac_data) #expected shape (None, 24, 7)
+  tic=timeit.default_timer()
+  print("Start Computing Feature Contribution Scores")
+  bac_data = torch.from_numpy(df[:300]).float().to(device)
+  d_ = torch.from_numpy(df).float().to(device)
+  shap_exp=shap.DeepExplainer(model, bac_data) #expected shape (None, 24, 7)
 
-    shap_values=shap_exp.shap_values(d_)
+  shap_values=shap_exp.shap_values(d_, check_additivity=False)
 
-    print('Total time: ' + str(timeit.default_timer()-tic))
+  print('Total time: ' + str(timeit.default_timer()-tic))
 
-    shap_values=np.asarray(shap_values).squeeze()
-    print("Shap Values.shape: ", shap_values.shape)
+  shap_values=np.asarray(shap_values).squeeze()
+  print("Shap Values.shape: ", shap_values.shape)
 
-    #save shap values
-    with open(f'{model_}_shap_values.dill', 'wb') as f:
-        dill.dump(shap_values, f)
+  #save shap values
+  with open(f'{model_}_shap_values.dill', 'wb') as f:
+      dill.dump(shap_values, f)
     
   
-    pa = PerturbationAnalysis()
-    scores = pa.analysis_relevance(df, pred_val, shap_values,
-                        predict_fn=predict_fn,
-                        replace_method=args.replace_method,
-                        eval_fn=metrics.mean_squared_error,
-                        percentile=90
-                        )
-    metadata = add_metadata("Shap Values", scores['original'], scores['percentile'], scores['random'])
+  pa = PerturbationAnalysis()
+  scores = pa.analysis_relevance(df, pred_val, shap_values,
+                      predict_fn=predict_fn,
+                      replace_method=args.replace_method,
+                      eval_fn=metrics.mean_squared_error,
+                      percentile=90
+                      )
+  metadata = add_metadata("Shap Values", scores['original'], scores['percentile'], scores['random'])
 
 
 
 
 
-
-    lasso_classifier = linear_model.Lasso(alpha=0.01)  #faster the model, faster LIME works
-    per=Perturbation()
+  lasso_classifier = linear_model.Lasso(alpha=0.01)  #faster the model, faster LIME works
+  per=Perturbation()
    
-    #Feature Contribution with LIME and Uniform Segmentation
-    tic = timeit.default_timer()
-    print("Start computation of LIME Values")
+  #Feature Contribution with LIME and Uniform Segmentation
+  tic = timeit.default_timer()
+  print("Start computation of LIME Values")
 
-    #segments object, WindowSegmentation object has stationery and exponential segmentations techniques
-    uniform_seg=WindowSegmentation(partitions=4, win_length= args.window_length)
-    uniform_lime=LimeTS(kernel=lasso_classifier, segmenter=uniform_seg, sampler=per, n_samples= args.n_samples)
-    lime_values_uni=[uniform_lime.explain(df[i], predict_fn, segmentation_method='uniform')
-                 for i in range(len(df))]
+  #segments object, WindowSegmentation object has stationery and exponential segmentations techniques
+  uniform_seg=WindowSegmentation(partitions=4, win_length= args.window_length)
+  uniform_lime=LimeTS(kernel=lasso_classifier, segmenter=uniform_seg, sampler=per, n_samples= args.n_samples)
+  lime_values_uni=[uniform_lime.explain(df[i], predict_fn, segmentation_method='uniform')
+               for i in range(len(df))]
 
-    print('Total time: ' + str(timeit.default_timer()-tic))
+  print('Total time: ' + str(timeit.default_timer()-tic))
 
-    pa = PerturbationAnalysis()
-    scores = pa.analysis_relevance(df, pred_val, lime_values_uni,
-                        predict_fn=predict_fn,
-                        replace_method=args.replace_method,
-                        eval_fn=metrics.mean_squared_error,
-                        percentile=90
-                        )
+  pa = PerturbationAnalysis()
+  scores = pa.analysis_relevance(df, pred_val, lime_values_uni,
+                      predict_fn=predict_fn,
+                      replace_method=args.replace_method,
+                      eval_fn=metrics.mean_squared_error,
+                      percentile=90
+                      )
 
-    metadata = add_metadata("LIME Values with Uniform Segmentation", scores['original'],
-             scores['percentile'], scores['random'])
-
-
-
-
-
-
-    #LimeTS object for exponential window segmentation
-    tic = timeit.default_timer()
-    print("Computation of Lime Values with Exponential Segmentation")
-
-    #segment object, WindowSegmentation has stationery and exponentials segmentation techniques
-    exp_seg=WindowSegmentation(partitions=4, win_length= args.window_length)
-    exp_lime=LimeTS(kernel=lasso_classifier, segmenter=exp_seg, sampler=per, n_samples= args.n_samples)
-    #explainer for LimeTS
-    lime_values_exp=[exp_lime.explain(df[i], predict_fn, segmentation_method='exponential')
-                 for i in range(len(df))]
-
-    print('Total time: ' + str(timeit.default_timer()-tic))
-
-
-
-    pa = PerturbationAnalysis()
-    scores = pa.analysis_relevance(df, pred_val, lime_values_exp,
-                        predict_fn=predict_fn,
-                        replace_method=args.replace_method,
-                        eval_fn=metrics.mean_squared_error,
-                        percentile=90
-                        )
-
-    metadata = add_metadata("LIME Values with Exponential Segmentation", scores['original'],
-             scores['percentile'], scores['random'])
+  metadata = add_metadata("LIME Values with Uniform Segmentation", scores['original'],
+           scores['percentile'], scores['random'])
 
 
 
 
 
 
+  #LimeTS object for exponential window segmentation
+  tic = timeit.default_timer()
+  print("Computation of Lime Values with Exponential Segmentation")
 
-    #LimeTS object for SAX segmentation
-    tic=timeit.default_timer()
-    print("Computation of Lime Values with SAX Segmentation")
+  #segment object, WindowSegmentation has stationery and exponentials segmentation techniques
+  exp_seg=WindowSegmentation(partitions=4, win_length= args.window_length)
+  exp_lime=LimeTS(kernel=lasso_classifier, segmenter=exp_seg, sampler=per, n_samples= args.n_samples)
+  #explainer for LimeTS
+  lime_values_exp=[exp_lime.explain(df[i], predict_fn, segmentation_method='exponential')
+               for i in range(len(df))]
 
-
-    #create segment object for SAX Transformation
-    seg_sax=SAXSegmentation(partitions=4, win_length=args.window_length)
-
-    lime_sax=LimeTS(kernel=lasso_classifier, segmenter=seg_sax, sampler=per, n_samples=args.n_samples)
-    lime_values_sax=[lime_sax.explain(df[i], predict_fn) for i in range(len(df))]
-
-    print('Total time: ' + str(timeit.default_timer()-tic))
-
-
-    pa = PerturbationAnalysis()
-    scores = pa.analysis_relevance(df, pred_val, lime_values_sax,
-                        predict_fn=predict_fn,
-                        replace_method=args.replace_method,
-                        eval_fn=metrics.mean_squared_error,
-                        percentile=90
-                        )
-
-    metadata = add_metadata("LIME Values with SAX Segmentation", scores['original'],
-             scores['percentile'], scores['random'])
+  print('Total time: ' + str(timeit.default_timer()-tic))
 
 
-    metadata.to_csv("scores.csv")
+
+  pa = PerturbationAnalysis()
+  scores = pa.analysis_relevance(df, pred_val, lime_values_exp,
+                      predict_fn=predict_fn,
+                      replace_method=args.replace_method,
+                      eval_fn=metrics.mean_squared_error,
+                      percentile=90
+                      )
+
+  metadata = add_metadata("LIME Values with Exponential Segmentation", scores['original'],
+           scores['percentile'], scores['random'])
+
+
+
+
+
+
+
+  #LimeTS object for SAX segmentation
+  tic=timeit.default_timer()
+  print("Computation of Lime Values with SAX Segmentation")
+
+
+  #create segment object for SAX Transformation
+  seg_sax=SAXSegmentation(partitions=4, win_length=args.window_length)
+
+  lime_sax=LimeTS(kernel=lasso_classifier, segmenter=seg_sax, sampler=per, n_samples=args.n_samples)
+  lime_values_sax=[lime_sax.explain(df[i], predict_fn) for i in range(len(df))]
+
+  print('Total time: ' + str(timeit.default_timer()-tic))
+
+
+  pa = PerturbationAnalysis()
+  scores = pa.analysis_relevance(df, pred_val, lime_values_sax,
+                      predict_fn=predict_fn,
+                      replace_method=args.replace_method,
+                      eval_fn=metrics.mean_squared_error,
+                      percentile=90
+                      )
+
+  metadata = add_metadata("LIME Values with SAX Segmentation", scores['original'],
+           scores['percentile'], scores['random'])
+
+
+  metadata.to_csv("scores.csv")
