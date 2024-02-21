@@ -5,6 +5,7 @@ from replace import global_mean
 
 
 class PerturbationBase:
+    @staticmethod
     def mask_percentile(x, percentile=90):
         """Create a mask based on percentile for the relevance.
 
@@ -32,14 +33,13 @@ class PerturbationBase:
 
         return m
 
-
-    def _randomize(m, delta = 0.0):
+    @staticmethod
+    def _randomize(m, delta=0.0):
         m = np.array(m)
         n_steps, features = m.shape
-        n_offs = (m == 0).sum(axis = 0)
-        n_offs = (np.ceil(n_offs*(1+delta))).astype(int)
+        n_offs = (m == 0).sum(axis=0)
+        n_offs = (np.ceil(n_offs * (1 + delta))).astype(int)
         n_ons = (n_steps - n_offs).astype(int)
-
 
         random_mask = []
 
@@ -51,40 +51,26 @@ class PerturbationBase:
 
         assert m.shape == random_mask.shape
 
-        #inplace shuffle for each feature
+        # inplace shuffle for each feature
         _ = np.apply_along_axis(np.random.shuffle, axis=0, arr=random_mask)
         return random_mask
 
-
-
-
-
-
-
-    def mask_randomize(self, x, percentile = 90, delta = 0.0):
+    def mask_randomize(self, x, percentile=90, delta=0.0):
 
         m = self.mask_percentile(x, percentile)
-        m = self._randomize(m ,delta)
+        m = self._randomize(m, delta)
         return m
 
-
-
-
-
-
-
-
-
-    def _perturb(x, m, replace_method = 'zeros'):
+    @staticmethod
+    def _perturb(x, m, replace_method='zeros'):
         replace_fn = getattr(repl, replace_method)
         r = replace_fn(x, m)
+        if replace_method=='local_mean':
+          r = replace_fn(x, m)
+        else: r = replace_fn(x)
         assert x.shape == m.shape == r.shape
-        z = x * m + r * (1-m)
+        z = x * m + r * (1 - m)
         return z
-
-
-
-
 
     def perturb(self, X, R, replace_method="zeros", percentile=90, shuffle=False, delta=0.0):
 
@@ -99,11 +85,7 @@ class PerturbationBase:
                 m = self.mask_percentile(r, percentile)
             yield self._perturb(x, m, replace_method=replace_method)
 
-
-
-
-
-    def perturb_windows(self, X, R, replace_method = 'zeros', percentile = 90):
+    def perturb_windows(self, X, R, replace_method='zeros', percentile=90):
 
         mean_windows = []
         for r in R:
@@ -117,27 +99,19 @@ class PerturbationBase:
         windows, timestamps, features = X.shape
         r = X
         for i, j in enumerate(mask):
-            if j==1:
+            if j == 1:
                 r[i, :, :] = self._perturb(X[i, :, :], np.ones_like(features),
-                                           replace_method = replace_method)
+                                           replace_method=replace_method)
         return r
 
-
-
-
-
     def randomize_windows(self, X):
-        idx = np.random.randint(0, X.shape[0], size = X.shape)
+        idx = np.random.randint(0, X.shape[0], size=X.shape)
         r = X
         for i in idx:
             r[i, :, :] = self.mask_randomize(X[i, :, :])
         return r
 
-
-
-
-
-    def perturbation(self, X, relevance, replace_method = 'zeros', percentile = 90, shuffle = False, delta = 0.0):
+    def perturbation(self, X, relevance, replace_method='zeros', percentile=90, shuffle=False, delta=0.0):
 
         for x, r in zip(X, relevance):
             assert x.shape == r.shape, (
@@ -149,21 +123,16 @@ class PerturbationBase:
                 m = self.mask_randomize(r, percentile, delta)
             else:
                 m = self.mask_percentile(r, percentile)
-            yield self._perturb(x, m, replace_method = replace_method)
-
-
-
+            yield self._perturb(x, m, replace_method=replace_method)
 
 
 class PerturbationAnalysis(PerturbationBase):
 
-
-    def __init__(self,) -> None:
+    def __init__(self, ) -> None:
         """Construct analysis class for perturbation method."""
         super().__init__()
 
         self.insights = dict()
-
 
     def add_insight(self, k, v):
         """Store the result to the insights dict.
@@ -174,28 +143,22 @@ class PerturbationAnalysis(PerturbationBase):
         """
         self.insights.update({k: v})
 
-
-
-
-
     def analysis_relevance(self, X, y, relevance, predict_fn,
-                           eval_fn, replace_method = 'zeros', percentile = 90,
-                           delta = 0.0):
+                           eval_fn, replace_method='zeros', percentile=90,
+                           delta=0.0):
+        x_percentile = self.perturb(X, relevance, replace_method=replace_method,
+                                    percentile=percentile)
 
-        X_percentile = self.perturb(X, relevance, replace_method = replace_method,
-                                percentile = percentile)
+        x_percentile = np.array(list(x_percentile))
+        print(x_percentile.shape)
 
-        X_percentile = np.array(list(X_percentile))
-        print(X_percentile.shape)
-
-        X_random = self.perturb(X, relevance,
+        x_random = self.perturb(X, relevance,
                                 replace_method=replace_method,
                                 percentile=percentile,
                                 shuffle=True,
                                 delta=delta
                                 )
-        X_random = np.array(list(X_random))
-
+        x_random = np.array(list(x_random))
 
         # Score for original
         y_pred = predict_fn(X).ravel()
@@ -203,34 +166,28 @@ class PerturbationAnalysis(PerturbationBase):
         self.add_insight('original', score)
 
         # Score for Percentile
-        y_pred = predict_fn(X_percentile).ravel()
+        y_pred = predict_fn(x_percentile).ravel()
         score = eval_fn(y_pred, y)
         self.add_insight('percentile', score)
 
         # Score for random
-        y_pred = predict_fn(X_random).ravel()
+        y_pred = predict_fn(x_random).ravel()
         score = eval_fn(y_pred, y)
         self.add_insight('random', score)
 
         return self.insights
 
-
-
-
-
     def analysis_relevance_windows(self, X, y, relevance, predict_fn,
-                           eval_fn, replace_method = 'zeros', percentile = 90,
-                           delta = 0.0):
+                                   eval_fn, replace_method='zeros', percentile=90,
+                                   delta=0.0):
+        x_percentile = self.perturb_windows(X, relevance, replace_method=replace_method,
+                                            percentile=percentile)
 
-        X_percentile = self.perturb_windows(X, relevance, replace_method = replace_method,
-                                percentile = percentile)
+        x_percentile = np.array(list(x_percentile))
+        print(x_percentile.shape)
 
-        X_percentile = np.array(list(X_percentile))
-        print(X_percentile.shape)
-
-        X_random = self.randomize_windows(X)
-        X_random = np.array(list(X_random))
-
+        x_random = self.randomize_windows(X)
+        x_random = np.array(list(x_random))
 
         # Score for original
         y_pred = predict_fn(X).ravel()
@@ -238,18 +195,13 @@ class PerturbationAnalysis(PerturbationBase):
         self.add_insight('original_windows', score)
 
         # Score for Percentile
-        y_pred = predict_fn(X_percentile).ravel()
+        y_pred = predict_fn(x_percentile).ravel()
         score = eval_fn(y_pred, y)
         self.add_insight('percentile_windows', score)
 
         # Score for random
-        y_pred = predict_fn(X_random).ravel()
+        y_pred = predict_fn(x_random).ravel()
         score = eval_fn(y_pred, y)
         self.add_insight('random_windows', score)
 
         return self.insights
-
-
-
-
-

@@ -6,10 +6,11 @@ from torch.utils.data import DataLoader, TensorDataset
 from matplotlib import pyplot as plt
 from IPython.display import clear_output
 
-class TrainModel():
+
+class TrainModel:
     def __init__(self, model, x_train, y_train, x_test,
-                 y_test, epochs = 100, batch_size = 32,
-                 device = 'cpu'):
+                 y_test, epochs=100, batch_size=32,
+                 device='cpu'):
         self.train_loss = []
         self.val_loss = []
         self.model = model
@@ -21,22 +22,15 @@ class TrainModel():
         self.batch_size = batch_size
         self.device = device
 
-
-
     def __call__(self):
-        self.run_model()
-
-
-
-
+        model_, train_loss, val_loss = self.run_model()
+        return model_, train_loss, val_loss
     def run_model(self):
         num_epochs = []
         CNN = False
         if isinstance(self.model, CNNModel):
             CNN = True
         # hyperparameters
-        input_size = 3
-        hidden_size = 4
         output_size = 1
         learning_rate = 0.01
 
@@ -106,10 +100,6 @@ class TrainModel():
 
         return self.model, self.train_loss, self.val_loss
 
-
-
-
-
     # CREATE LOSS CURVES
     def draw_curve(self, num_epochs):
         clear_output(wait=True)
@@ -120,15 +110,11 @@ class TrainModel():
         plt.show()
 
 
-
-
-
-
-
 class RNNModel(nn.Module):
     def __init__(self, input_shape):
         super(RNNModel, self).__init__()
-        self.lstm = nn.LSTM(input_size=input_shape[1], hidden_size=32, batch_first=True)  # Increased hidden size and layers
+        self.lstm = nn.LSTM(input_size=input_shape[1], hidden_size=32,
+                            batch_first=True)  # Increased hidden size and layers
         self.fc = nn.Sequential(
             nn.Flatten(),
             nn.Linear(32 * input_shape[0], 100),  # Increased output size
@@ -143,22 +129,16 @@ class RNNModel(nn.Module):
         return x
 
 
-
-
-
-
-
-
-#Transformer model
+# Transformer model
 class TransformerRegressor(nn.Module):
-    def __init__(self, input_dim, d_model, nhead, num_encoder_layers, dim_feedforward, output_dim):
+    def __init__(self, input_dim, d_model, n_head, num_encoder_layers, dim_feedforward, output_dim):
         super(TransformerRegressor, self).__init__()
         self.embedding = nn.Linear(input_dim, d_model)
 
         # Define a single Transformer Encoder Layer
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=d_model,
-            nhead=nhead,
+            nhead=n_head,
             dim_feedforward=dim_feedforward
         )
 
@@ -178,11 +158,7 @@ class TransformerRegressor(nn.Module):
         return out
 
 
-
-
-
-
-#CNN Model
+# CNN Model
 class CNNModel(nn.Module):
     def __init__(self, input_size):
         super(CNNModel, self).__init__()
@@ -215,27 +191,24 @@ class CNNModel(nn.Module):
         return x
 
 
-
-
-
 # DNN Model
 class DNNModel(nn.Module):
-  def __init__(self, time_steps, features):
-    super(DNNModel, self).__init__()
-    flattened_data=time_steps*features
-    self.flatten=nn.Flatten()
-    self.dense_layer1=nn.Linear(flattened_data, 500)
-    self.dropout_layer1=nn.Dropout(0.3)
-    self.dense_layer2=nn.Linear(500, 250)
-    self.dropout_layer2=nn.Dropout(0.3)
+    def __init__(self, time_steps, features):
+        super(DNNModel, self).__init__()
+        flattened_data = time_steps * features
+        self.flatten = nn.Flatten()
+        self.dense_layer1 = nn.Linear(flattened_data, 500)
+        self.dropout_layer1 = nn.Dropout(0.3)
+        self.dense_layer2 = nn.Linear(500, 250)
+        self.dropout_layer2 = nn.Dropout(0.3)
 
-    self.output_layer=nn.Linear(250, 1)
+        self.output_layer = nn.Linear(250, 1)
 
-  def forward(self, x):
-    x = self.flatten(x)
-    x = nn.ReLU()(self.dense_layer1(x))
-    x = self.dropout_layer1(x)
-    x = nn.ReLU()(self.dense_layer2(x))
-    x = self.dropout_layer2(x)
-    x = self.output_layer(x)
-    return x
+    def forward(self, x):
+        x = self.flatten(x)
+        x = nn.ReLU()(self.dense_layer1(x))
+        x = self.dropout_layer1(x)
+        x = nn.ReLU()(self.dense_layer2(x))
+        x = self.dropout_layer2(x)
+        x = self.output_layer(x)
+        return x
