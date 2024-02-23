@@ -1,0 +1,11 @@
+numpy
+matplotlib
+pandas==1.5.3
+scikit-learn
+torch
+statistics
+IPython
+dill
+shap
+stumpy
+pyts
