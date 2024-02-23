@@ -3,69 +3,62 @@ import pandas as pd
 from io import BytesIO
 from zipfile import ZipFile
 from urllib.request import urlopen
+
+
 def get_synthetic_data():
-  # Preparing lists to store the data
-  a, b, c, d, e, f = [], [], [], [], [], []
+    # Preparing lists to store the data
+    a, b, c, d, e, f = [], [], [], [], [], []
 
-  # First loop
-  a.extend(np.sort(np.random.uniform(0, 0.5, 400)))
-  b.extend(np.sort(np.random.uniform(0, 0.5, 400)))
-  c.extend(np.random.uniform(0.5, 1, 400))
-  d.extend(np.sort(np.random.uniform(0.5, 1, 400))[::-1])
-  e.extend(np.random.uniform(0.5, 1, 400))
-  f.extend(np.random.uniform(0.5, 1, 400))
+    # First loop
+    a.extend(np.sort(np.random.uniform(0, 0.5, 400)))
+    b.extend(np.sort(np.random.uniform(0, 0.5, 400)))
+    c.extend(np.random.uniform(0.5, 1, 400))
+    d.extend(np.sort(np.random.uniform(0.5, 1, 400))[::-1])
+    e.extend(np.random.uniform(0.5, 1, 400))
+    f.extend(np.random.uniform(0.5, 1, 400))
 
+    a.extend(np.sort(np.random.uniform(0, 0.5, 400))[::-1])
+    b.extend(np.sort(np.random.uniform(0, 0.5, 400))[::-1])
+    c.extend(np.random.uniform(0.5, 1, 400))
+    d.extend(np.random.uniform(0.5, 1, 400))
+    e.extend(np.sort(np.random.uniform(0.5, 1, 400)))
+    f.extend(np.random.uniform(0.5, 1, 400))
 
-  a.extend(np.sort(np.random.uniform(0, 0.5, 400))[::-1])
-  b.extend(np.sort(np.random.uniform(0, 0.5, 400))[::-1])
-  c.extend(np.random.uniform(0.5, 1, 400))
-  d.extend(np.random.uniform(0.5, 1, 400))
-  e.extend(np.sort(np.random.uniform(0.5, 1, 400)))
-  f.extend(np.random.uniform(0.5, 1, 400))
+    for i in range(400):
+        a.append(0.66)
+        b.append(0.457)
+    c.extend(np.random.uniform(0.5, 1, 400))
+    d.extend(np.random.uniform(0.5, 1, 400))
+    e.extend(np.random.uniform(0.5, 1, 400))
+    f.extend(np.random.uniform(0.5, 1, 400))
 
+    a.extend(np.random.uniform(0, 0.5, 400))
+    b.extend(np.random.uniform(0, 0.5, 400))
+    c.extend(np.random.uniform(0.5, 1, 400))
+    for i in range(400): d.append(0.33)
+    e.extend(np.sort(np.random.uniform(0.5, 1, 400)))
+    f.extend(np.sort(np.random.uniform(0.5, 1, 400)))
 
-  for i in range(400):
-    a.append(0.66)
-    b.append(0.457)
-  c.extend(np.random.uniform(0.5, 1, 400))
-  d.extend(np.random.uniform(0.5, 1, 400))
-  e.extend(np.random.uniform(0.5, 1, 400))
-  f.extend(np.random.uniform(0.5, 1, 400))
+    a.extend(np.random.uniform(0.5, 1, 400))
+    b.extend(np.random.uniform(0.5, 1, 400))
+    c.extend(np.random.uniform(0, 0.5, 400))
+    d.extend(np.random.uniform(0, 0.5, 400))
+    e.extend(np.sort(np.random.uniform(0.5, 1, 400))[::-1])
+    f.extend(np.sort(np.random.uniform(0.5, 1, 400))[::-1])
 
+    a = np.asarray(a)
+    b = np.asarray(b)
+    c = np.asarray(c)
+    d = np.asarray(d)
+    e = np.asarray(e)
+    f = np.asarray(f)
 
-  a.extend(np.random.uniform(0, 0.5, 400))
-  b.extend(np.random.uniform(0, 0.5, 400))
-  c.extend(np.random.uniform(0.5, 1, 400))
-  for i in range(400): d.append(0.33)
-  e.extend(np.sort(np.random.uniform(0.5, 1, 400)))
-  f.extend(np.sort(np.random.uniform(0.5, 1, 400)))
+    g = (-44 * a - 32 * b + 0 * c + 8 * d + e ** 2 - f ** (1 / 2)) / 100
 
+    # Creating DataFrame from the lists
+    data = pd.DataFrame({'a': a, 'b': b, 'c': c, 'd': d, 'e': e, 'f': f, 'g': g})  # , 'e': e, 'f': f, 'g': g})
 
-  a.extend(np.random.uniform(0.5, 1, 400))
-  b.extend(np.random.uniform(0.5, 1, 400))
-  c.extend(np.random.uniform(0, 0.5, 400))
-  d.extend(np.random.uniform(0, 0.5, 400))
-  e.extend(np.sort(np.random.uniform(0.5, 1, 400))[::-1])
-  f.extend(np.sort(np.random.uniform(0.5, 1, 400))[::-1])
-
-  a=np.asarray(a)
-  b=np.asarray(b)
-  c=np.asarray(c)
-  d=np.asarray(d)
-  e=np.asarray(e)
-  f=np.asarray(f)
-
-
-  g=(-44*a-32*b+0*c+8*d+e**2-f**(1/2))/100
-
-  # Creating DataFrame from the lists
-  data = pd.DataFrame({'a': a, 'b': b, 'c': c, 'd': d, 'e': e, 'f': f, 'g': g}) #, 'e': e, 'f': f, 'g': g})
-
-  return data
-
-
-
-
+    return data
 
 
 def load_dataset(dataset="beijing_pm2.5", url=None):
@@ -110,9 +103,6 @@ def load_dataset(dataset="beijing_pm2.5", url=None):
             df = df_list[0]
 
     return df
-
-
-
 
 
 def add_metadata(df, contribution_method, orig_score, pert_score,
