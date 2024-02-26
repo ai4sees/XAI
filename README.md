@@ -25,7 +25,7 @@ In order to reproduce the results depicted in the paper, it is essential to foll
  Run the following command to preprocess data
 
 
-     python examples/main.py --dataset <dataset> --url <url> --y_column <y> --drop_col <cols> --scaler <scaler> --window_size <window_size>
+     python examples/preprocess.py --dataset <dataset> --url <url> --y_column <y> --drop_col <cols> --scaler <scaler> --window_size <window_size>
 
  Here, 'dataset' can either be beijing_PM2.5 beijing-multi_site, synthetic data or any other dataset can be imported by providing url to the 'url' argument. 'y_column' indicates the predicted feature of the dataset. Other arguments like 'drop_col', 'scaler' and 'window_size' are data preprocessing options. 'drop_col' takes names of all columns to be dropped, if any, 'scaler' argument takes either normalize or standardize, depending on the type of normalization technique to use on data and window_size sets the window length. This will also download files for preprocessed data.
 
