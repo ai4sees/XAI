@@ -6,19 +6,24 @@ To further evaluate the explanations from DeepSHAP, we use a threefold strategy-
 - We incorporate feature importance scores into the model training process through feature weighting or feature augmentation
 
 ## Installation
+
 This code needs python- 3.9 or higher. For other dependencies of the project, run the command
+
 
     pip install -r requirements.txt 
 
 ## Results Reproduction
 In order to reproduce the results depicted in the paper, it is essential to follow a sequence of steps as-
 - Preprocessing of data
+
 - Training of models
 - Computation of Feature Importance scores
 - Utilizing Feature Importance scores for Comparative, Computational Measures and Visual Analysis
 
+
  ### Preprocessing of Data
  Run the following command to preprocess data
+
 
      python examples/main.py --dataset <dataset> --url <url> --y_column <y> --drop_col <cols> --scaler <scaler> --window_size <window_size>
 
@@ -45,10 +50,3 @@ Now, for training model with incorporating feature importance scores either thro
     python examples/train_with_feat_augmentation.py --model <model> --epochs --batch_size <batch_size> --test_size <test_size> --windows <windows> --device <device>
 
 <model> argument specifies the type of model used for the original training process so that corresponding feature contributions can be incorporated. 
-
-
-  
-
-
- 
-
