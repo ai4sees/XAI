@@ -41,7 +41,7 @@ class Xai(Evaluation):
         back_data = torch.from_numpy(self.back_data).float()
         df=torch.from_numpy(self.df).float()
         e = shap.DeepExplainer(self.model, back_data)
-        shap_values = e.shap_values(df)
+        shap_values = e.shap_values(df, check_additivity=False)
         print("Shape of shap values: ", shap_values.shape)
         shap_values = np.array(shap_values).squeeze()
         return shap_values
@@ -91,7 +91,7 @@ class Xai(Evaluation):
         train = TrainModel(self.model, x_train, y_train, x_test, y_test, epochs, batch_size, device)
 
         trained_model, train_loss, val_loss = train()
-
+        print(train.test_model())
         return trained_model, train_loss, val_loss
 
     def train_with_feat_aug(self, feat_cont, epochs=100, batch_size=32,
@@ -108,7 +108,7 @@ class Xai(Evaluation):
         train = TrainModel(self.model, x_train, y_train, x_test, y_test, epochs, batch_size, device)
 
         trained_model, train_loss, val_loss = train()
-
+        print(train.test_model())
         return trained_model, train_loss, val_loss
 
     def get_perturbation_score(self, feat_cont, windows=False):

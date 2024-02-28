@@ -15,12 +15,7 @@ args = parser.parse_args()
 
 df = load_dataset(dataset=args.dataset, url=args.url)
 data_processor = Preprocessor(df, args.y_column)
-data_processor.clean_data(col=args.drop_col)
-if args.scaler == "normalize":
-    _ = data_processor.normalize()
-
-if args.scaler == "standardize":
-    _ = data_processor.standardize()
+data_processor.clean_data(col=args.drop_col, scaler=args.scaler)
 
 X, y = data_processor.create_sequences(n_steps=args.window_size)
 print(X.shape)

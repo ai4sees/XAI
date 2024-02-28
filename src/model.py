@@ -25,6 +25,7 @@ class TrainModel:
     def __call__(self):
         model_, train_loss, val_loss = self.run_model()
         return model_, train_loss, val_loss
+
     def run_model(self):
         num_epochs = []
         CNN = False
@@ -108,6 +109,14 @@ class TrainModel:
         plt.ylim(0, 1)
         plt.legend()
         plt.show()
+
+    def test_model(self):
+        mse = nn.MSELoss()
+        x_test = torch.from_numpy(self.x_test).float().to(self.device)
+        y_test = torch.from_numpy(self.y_test).float().to(self.device)
+        pred = self.model(x_test)
+        loss = mse(pred, y_test)
+        return loss
 
 
 class RNNModel(nn.Module):

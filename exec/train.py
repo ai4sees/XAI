@@ -59,6 +59,7 @@ train_model = TrainModel(model, x_train, y_train, x_test,
                          device=args.device)
 
 model_, train_loss, val_loss = train_model()
+print(train_model.test_model())
 torch.save(model.state_dict(), "model.pt")
 with open("train_loss.dill", "wb") as f:
     dill.dump(train_loss, f)
