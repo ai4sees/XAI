@@ -5,6 +5,32 @@ To further evaluate the explanations from DeepSHAP, we use a threefold strategy-
 - We perform Perturbation Analysis and Visual Analysis for a comprehensive validation process
 - We incorporate feature importance scores into the model training process through feature weighting or feature augmentation
 
+## Project Structure
+
+    XAI/
+    -data/
+    -exec/
+    -notebooks/
+    -perturb/
+    -results/
+    -src/
+    -tsmule/
+    -xai_eval/tsmule/
+    -README.md
+    -requirements.txt
+
+where:
+
+&#8226; `data/` contains datasets used in this project  
+&#8226; `exec/` contains executable files for preproecessing and downloading the input data, computation of feature contributions and model training with incorporation of feature contribution and without incorporation of feature contribution  
+&#8226; `notebooks/` contains demo execution of the project and visual analysis of feature importance scores in jupyter notebooks  
+&#8226; `perturb/` contains perturbation related functions and class files  
+&#8226; `results/` contains sample data, model and other output files  
+&#8226; `src/` contains class files and other functions related to preprocessing of data, training of models and computation of feature contributions  
+&#8226; `tsmule/` contains the TS-MULE repository code  
+&#8226; `xai_eval/tsmule/` contains cache files related to the project   
+
+
 ## Installation
 
 This code needs python- 3.9 or higher. For other dependencies of the project, run the command
@@ -14,8 +40,7 @@ This code needs python- 3.9 or higher. For other dependencies of the project, ru
 
 ## Results Reproduction
 In order to reproduce the results depicted in the paper, it is essential to follow a sequence of steps as-
-- Preprocessing of data
-
+- Preprocessing of data  
 - Training of models
 - Computation of Feature Importance scores
 - Utilizing Feature Importance scores for Comparative, Computational Measures and Visual Analysis
