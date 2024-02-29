@@ -74,3 +74,23 @@ Now, for training model with incorporating feature importance scores either thro
     python exec.train_with_feat_augmentation --model <model> --epochs --batch_size <batch_size> --test_size <test_size> --windows <windows> --device <device>
 
 `model` argument specifies the type of model used for the original training process so that corresponding feature contributions can be incorporated. 
+
+
+### Results
+
+The Loss Curves for training a model without feature importance scores and with feature importance scores are shown for LSTM and Transformer Models. The
+loss curves are plotted as training model with original data against training model with data modified with contribution scores.
+
+
+![loss_curves](https://github.com/ai4sees/XAI/assets/104296674/fd3d84ed-ae23-4de7-a89e-33d3cf8739dd)
+
+The graphs depict the visual comaprison of shap scores for LSTM and Transformers models for Beijing Air Multi Site dataset. The first graph. In the first graph, Points are highlighted to depict how feature importances are varying at several points with respect to original time stamps. The topmost subplot of the second graph represents the forecast values for each window in Beijing Multi Site Air Quality Dataset. subsequent plots illustrates SHAP feature importances for the selected time period.  
+
+![figure6](https://github.com/ai4sees/XAI/assets/104296674/c12fd90c-af65-4eb5-a083-501533a80354)
+
+
+![figure7](https://github.com/ai4sees/XAI/assets/104296674/e94d4bbf-52eb-4849-9e20-e53f478610fe)
+
+
+
+
