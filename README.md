@@ -77,12 +77,20 @@ Now, for training model with incorporating feature importance scores either thro
 
 
 ### Results
+Fo comparative analysis of TS-MULE and DeepSHAP, the perturbation score metric for various models and datasets are given in the following table- 
+
+![perturbation_score](https://github.com/ai4sees/XAI/assets/104296674/c0cb528b-49fc-48db-bcf9-98cf2287a580)
+
 
 The Loss Curves for training a model without feature importance scores and with feature importance scores are shown for LSTM and Transformer Models. The
 loss curves are plotted as training model with original data against training model with data modified with contribution scores.
 
 
 ![loss_curves](https://github.com/ai4sees/XAI/assets/104296674/fd3d84ed-ae23-4de7-a89e-33d3cf8739dd)
+
+The Mean Squared Error values for training of models with and without feature importance scores are as given in the table-
+
+![mse](https://github.com/ai4sees/XAI/assets/104296674/3bd64665-5899-475f-8f15-d990221dd888)
 
 The graphs depict the visual comaprison of shap scores for LSTM and Transformers models for Beijing Air Multi Site dataset. The first graph. In the first graph, Points are highlighted to depict how feature importances are varying at several points with respect to original time stamps. The topmost subplot of the second graph represents the forecast values for each window in Beijing Multi Site Air Quality Dataset. subsequent plots illustrates SHAP feature importances for the selected time period.  
 
